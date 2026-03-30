@@ -222,7 +222,7 @@ async function startGateway() {
     "gateway",
     "run",
     "--bind",
-    "loopback",
+    process.env.OPENCLAW_GATEWAY_BIND ?? "loopback",
     "--port",
     String(INTERNAL_GATEWAY_PORT),
     "--auth",
