@@ -218,6 +218,18 @@ async function startGateway() {
   const stopResult = await runCmd(OPENCLAW_NODE, clawArgs(["gateway", "stop"]));
   log.info("gateway", `stop existing gateway exit=${stopResult.code}`);
 
+  // Clean up stale PID/lock files that prevent restart on Railway
+  try {
+    for (const f of fs.readdirSync("/tmp/openclaw").filter(f => f.endsWith(".pid") || f.endsWith(".lock"))) {
+      fs.unlinkSync(path.join("/tmp/openclaw", f));
+      log.info("gateway", `cleaned stale lock: /tmp/openclaw/${f}`);
+    }
+  } catch { /* dir may not exist */ }
+
+  // Wait for old process to fully release the port (Railway can be slow)
+  await new Promise(r => setTimeout(r, 2000));
+  log.info("gateway", "waited 2s for port release after stop");
+
   const args = [
     "gateway",
     "run",
