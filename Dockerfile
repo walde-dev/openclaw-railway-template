@@ -12,13 +12,7 @@ RUN apt-get update \
     zip \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g openclaw@2026.3.22 clawhub@latest
-
-# Control UI assets missing in 2026.3.22, grab from 2026.3.13
-  RUN npm pack openclaw@2026.3.13 --pack-destination /tmp \                                                                                                                                                                                                
-    && tar -xzf /tmp/openclaw-2026.3.13.tgz -C /tmp \                                                                                                                                                                                                      
-    && cp -r /tmp/package/dist/control-ui /usr/local/lib/node_modules/openclaw/dist/control-ui \
-    && rm -rf /tmp/openclaw-2026.3.13.tgz /tmp/package        
+RUN npm install -g openclaw@2026.3.31 clawhub@latest    
 
 # Backward-compatibility shim for older OPENCLAW_ENTRY values.
 RUN mkdir -p /openclaw \
