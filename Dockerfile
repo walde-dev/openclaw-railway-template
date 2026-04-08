@@ -46,5 +46,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD curl -f http://localhost:8080/setup/healthz || exit 1
 
+COPY --chmod=644 file-server.js /app/file-server.js
 USER root
 ENTRYPOINT ["./entrypoint.sh"]
