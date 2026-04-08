@@ -7,7 +7,7 @@ const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/data/workspace';
 
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -26,6 +26,10 @@ const server = http.createServer((req, res) => {
   const rawPath = url.pathname.replace(/^\/files\/?/, '');
 
   if (!rawPath) {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'method not allowed on root' }));
+    }
     try {
       const files = listDir(WORKSPACE, '');
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -46,6 +50,72 @@ const server = http.createServer((req, res) => {
   if (segments.some(s => s.startsWith('.'))) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'hidden files not accessible' }));
+  }
+
+  if (req.method === 'PUT') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        try {
+          const existing = fs.statSync(resolved);
+          if (existing.isDirectory()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ error: 'cannot write to a directory' }));
+          }
+        } catch (err) {
+          if (err.code !== 'ENOENT') throw err;
+        }
+
+        const parentDir = path.dirname(resolved);
+        fs.mkdirSync(parentDir, { recursive: true });
+
+        fs.writeFileSync(resolved, body, 'utf-8');
+        const stat = fs.statSync(resolved);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ok: true,
+          path: rawPath,
+          size: stat.size,
+          modified: stat.mtimeMs,
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const stat = fs.statSync(resolved);
+      if (stat.isDirectory()) {
+        const entries = fs.readdirSync(resolved);
+        if (entries.filter(e => !e.startsWith('.')).length > 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'directory not empty' }));
+        }
+        fs.rmdirSync(resolved);
+      } else {
+        fs.unlinkSync(resolved);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, deleted: rawPath }));
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'not found', path: rawPath }));
+      }
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: `method ${req.method} not allowed` }));
   }
 
   try {
