@@ -36,7 +36,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  const resolved = path.resolve(WORKSPACE, rawPath);
+  const resolved = path.resolve(WORKSPACE, rawPath || '.');
   if (!resolved.startsWith(WORKSPACE)) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'path traversal detected' }));
